@@ -1,4 +1,4 @@
-# Instagram Clone Project
+# Social Media Clone Project
 
 This is a social media website, developed as a project to demonstrate proficiency in Java Spring Boot and React.
 
