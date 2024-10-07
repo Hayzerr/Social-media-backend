@@ -1,7 +1,8 @@
 # Social Media Clone Project
 
 This is a social media website, developed as a project to demonstrate proficiency in Java Spring Boot and React.
-FRONT-END: https://github.com/Hayzerr/Social-media-frontend
+
+Frontend: https://github.com/Hayzerr/Social-media-frontend
 
 
 ## Table of Contents
