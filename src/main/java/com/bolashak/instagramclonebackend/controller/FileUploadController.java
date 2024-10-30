@@ -1,54 +1,53 @@
 package com.bolashak.instagramclonebackend.controller;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.model.ObjectMetadata;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
 
 @RestController
-@RequestMapping("/api/upload")
+@RequestMapping("/upload")
+@RequiredArgsConstructor
 public class FileUploadController {
 
-    Logger logger = LoggerFactory.getLogger(FileUploadController.class);
+    private final AmazonS3 s3client;
 
-    private static final String UPLOAD_DIR = "uploads/";
+    @Value("${aws.s3.bucket}")
+    private String bucketName;
 
-    @PostMapping("/photo")
-    public ResponseEntity<String> uploadPhoto(@RequestParam("file") MultipartFile file) {
-        if (file.isEmpty()) {
-            return new ResponseEntity<>("File is empty", HttpStatus.BAD_REQUEST);
+    @PostMapping
+    public ResponseEntity<List<String>> uploadFiles(@RequestParam("files") MultipartFile[] files) {
+        List<String> fileUrls = new ArrayList<>();
+
+        if (files.length > 10) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(null);
         }
 
-        try {
-            // Create upload directory if it doesn't exist
-            File directory = new File(UPLOAD_DIR);
-            if (!directory.exists()) {
-                directory.mkdirs();
+        for (MultipartFile file : files) {
+            try {
+                ObjectMetadata metadata = new ObjectMetadata();
+                metadata.setContentLength(file.getSize());
+
+                String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
+                s3client.putObject(bucketName, fileName, file.getInputStream(), metadata);
+
+                String fileUrl = s3client.getUrl(bucketName, fileName).toString();
+                fileUrls.add(fileUrl);
+            } catch (IOException e) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
             }
-
-            String originalFileName = file.getOriginalFilename();
-            String cleanedFileName = originalFileName.replaceAll("\\s+", "_");
-            String uniqueFilename = UUID.randomUUID().toString() + "_" + cleanedFileName;
-
-            //logger.info("A url: {}", uniqueFilename);
-
-            Path filePath = Paths.get(UPLOAD_DIR, uniqueFilename);
-            Files.write(filePath, file.getBytes());
-
-            String fileUrl = "/uploads/" + uniqueFilename;
-            return new ResponseEntity<>(fileUrl, HttpStatus.OK);
-        } catch (IOException e) {
-            e.printStackTrace();
-            return new ResponseEntity<>("Failed to upload file", HttpStatus.INTERNAL_SERVER_ERROR);
         }
+
+        return ResponseEntity.ok(fileUrls);
     }
 }
